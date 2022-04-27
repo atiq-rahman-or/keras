@@ -233,6 +233,10 @@ class Constant(Initializer):
        (via `tf.keras.backend.set_floatx(float_dtype)`).
       **kwargs: Additional keyword arguments.
     """
+    _validate_kwargs(self.__class__.__name__, kwargs)
+    dtype = _get_dtype(dtype)
+    if _PARTITION_SHAPE in kwargs:
+      shape = kwargs[_PARTITION_SHAPE]
     layout = kwargs.pop('layout', None)
     if layout:
       return utils.call_with_layout(tf.constant, layout, self.value,
@@ -299,15 +303,16 @@ class RandomUniform(Initializer):
       raise ValueError(f'Expected float or integer dtype, got {dtype}.')
     if _PARTITION_SHAPE in kwargs:
       shape = kwargs[_PARTITION_SHAPE]
+    partition_offset = kwargs.get(_PARTITION_OFFSET, None)
     layout = kwargs.pop('layout', None)
     if layout:
       self._random_generator._rng_type = self._random_generator.RNG_STATEFUL
       _ensure_keras_seeded()
       return utils.call_with_layout(
           self._random_generator.random_uniform, layout, shape, self.minval,
-          self.maxval, dtype)
-    return self._random_generator.random_uniform(shape, self.minval,
-                                                 self.maxval, dtype)
+          self.maxval, dtype, partition_offset)
+    return self._random_generator.random_uniform(
+        shape, self.minval, self.maxval, dtype, partition_offset)
 
   def get_config(self):
     return {
@@ -369,15 +374,16 @@ class RandomNormal(Initializer):
     dtype = _assert_float_dtype(_get_dtype(dtype))
     if _PARTITION_SHAPE in kwargs:
       shape = kwargs[_PARTITION_SHAPE]
+    partition_offset = kwargs.get(_PARTITION_OFFSET, None)
     layout = kwargs.pop('layout', None)
     if layout:
       self._random_generator._rng_type = self._random_generator.RNG_STATEFUL
       _ensure_keras_seeded()
       return utils.call_with_layout(
           self._random_generator.random_normal, layout, shape, self.mean,
-          self.stddev, dtype)
-    return self._random_generator.random_normal(shape, self.mean, self.stddev,
-                                                dtype)
+          self.stddev, dtype, partition_offset)
+    return self._random_generator.random_normal(
+        shape, self.mean, self.stddev, dtype, partition_offset)
 
   def get_config(self):
     return {
@@ -444,15 +450,16 @@ class TruncatedNormal(Initializer):
     dtype = _assert_float_dtype(_get_dtype(dtype))
     if _PARTITION_SHAPE in kwargs:
       shape = kwargs[_PARTITION_SHAPE]
+    partition_offset = kwargs.get(_PARTITION_OFFSET, None)
     layout = kwargs.pop('layout', None)
     if layout:
       self._random_generator._rng_type = self._random_generator.RNG_STATEFUL
       _ensure_keras_seeded()
       return utils.call_with_layout(
           self._random_generator.truncated_normal, layout, shape, self.mean,
-          self.stddev, dtype)
-    return self._random_generator.truncated_normal(shape, self.mean,
-                                                   self.stddev, dtype)
+          self.stddev, dtype, partition_offset)
+    return self._random_generator.truncated_normal(
+        shape, self.mean, self.stddev, dtype, partition_offset)
 
   def get_config(self):
     return {
@@ -550,15 +557,18 @@ class VarianceScaling(Initializer):
     dtype = _assert_float_dtype(_get_dtype(dtype))
     if _PARTITION_SHAPE in kwargs:
       shape = kwargs[_PARTITION_SHAPE]
+    partition_offset = kwargs.get(_PARTITION_OFFSET, None)
     layout = kwargs.pop('layout', None)
     if layout:
       self._random_generator._rng_type = self._random_generator.RNG_STATEFUL
       _ensure_keras_seeded()
-      return utils.call_with_layout(self._generate_init_val, layout,
-                                    shape=shape, dtype=dtype)
-    return self._generate_init_val(shape=shape, dtype=dtype)
+      return utils.call_with_layout(
+          self._generate_init_val, layout, shape=shape, dtype=dtype,
+          partition_offset=partition_offset)
+    return self._generate_init_val(shape=shape, dtype=dtype,
+                                   partition_offset=partition_offset)
 
-  def _generate_init_val(self, shape, dtype):
+  def _generate_init_val(self, shape, dtype, partition_offset):
     scale = self.scale
     fan_in, fan_out = _compute_fans(shape)
     if self.mode == 'fan_in':
@@ -570,13 +580,16 @@ class VarianceScaling(Initializer):
     if self.distribution == 'truncated_normal':
       # constant from scipy.stats.truncnorm.std(a=-2, b=2, loc=0., scale=1.)
       stddev = math.sqrt(scale) / .87962566103423978
-      return self._random_generator.truncated_normal(shape, 0.0, stddev, dtype)
+      return self._random_generator.truncated_normal(
+          shape, 0.0, stddev, dtype, partition_offset)
     elif self.distribution == 'untruncated_normal':
       stddev = math.sqrt(scale)
-      return self._random_generator.random_normal(shape, 0.0, stddev, dtype)
+      return self._random_generator.random_normal(
+          shape, 0.0, stddev, dtype, partition_offset)
     else:
       limit = math.sqrt(3.0 * scale)
-      return self._random_generator.random_uniform(shape, -limit, limit, dtype)
+      return self._random_generator.random_uniform(
+          shape, -limit, limit, dtype, partition_offset)
 
   def get_config(self):
     return {

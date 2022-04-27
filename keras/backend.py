@@ -1910,7 +1910,7 @@ class RandomGenerator(tf.__internal__.tracking.AutoTrackable):
       self._generator = None
     self._built = True
 
-  def make_seed_for_stateless_op(self):
+  def make_seed_for_stateless_op(self, seed_delta=None):
     """Generate a new seed based on the init config.
 
     Note that this will not return python ints which will be frozen in the graph
@@ -1954,60 +1954,66 @@ class RandomGenerator(tf.__internal__.tracking.AutoTrackable):
     else:
       return random.randint(1, 1e9)
 
-  def random_normal(self, shape, mean=0., stddev=1., dtype=None):
+  def random_normal(self, shape, mean=0., stddev=1., dtype=None,
+                    partition_offset=None):
     self._maybe_init()
     dtype = dtype or floatx()
     if self._rng_type == self.RNG_STATEFUL:
       return self._generator.normal(
           shape=shape, mean=mean, stddev=stddev, dtype=dtype)
     elif self._rng_type == self.RNG_STATELESS:
+      seed = self.make_seed_for_stateless_op()
+      if partition_offset:
+        seed[0] += hash(partition_offset)
       return tf.random.stateless_normal(
           shape=shape, mean=mean, stddev=stddev, dtype=dtype,
-          seed=self.make_seed_for_stateless_op())
+          seed=seed)
     return tf.random.normal(
         shape=shape, mean=mean, stddev=stddev, dtype=dtype,
         seed=self.make_legacy_seed())
 
-  def random_uniform(self, shape, minval=0., maxval=None, dtype=None):
+  def random_uniform(self, shape, minval=0., maxval=None, dtype=None,
+                     partition_offset=None):
     self._maybe_init()
     dtype = dtype or floatx()
     if self._rng_type == self.RNG_STATEFUL:
       return self._generator.uniform(
           shape=shape, minval=minval, maxval=maxval, dtype=dtype)
     elif self._rng_type == self.RNG_STATELESS:
+      seed = self.make_seed_for_stateless_op()
+      if partition_offset:
+        seed[0] += hash(partition_offset)
       return tf.random.stateless_uniform(
         shape=shape, minval=minval, maxval=maxval, dtype=dtype,
-        seed=self.make_seed_for_stateless_op())
+        seed=seed)
     return tf.random.uniform(
         shape=shape, minval=minval, maxval=maxval, dtype=dtype,
         seed=self.make_legacy_seed())
 
-  def truncated_normal(self, shape, mean=0., stddev=1., dtype=None):
+  def truncated_normal(self, shape, mean=0., stddev=1., dtype=None,
+                       parttion_offset=None):
     self._maybe_init()
     dtype = dtype or floatx()
     if self._rng_type == self.RNG_STATEFUL:
       return self._generator.truncated_normal(
           shape=shape, mean=mean, stddev=stddev, dtype=dtype)
     elif self._rng_type == self.RNG_STATELESS:
+      seed = self.make_seed_for_stateless_op()
+      if parttion_offset:
+        seed[0] += hash(parttion_offset)
       return tf.random.stateless_truncated_normal(
         shape=shape, mean=mean, stddev=stddev, dtype=dtype,
-        seed=self.make_seed_for_stateless_op())
+        seed=seed)
     return tf.random.truncated_normal(
         shape=shape, mean=mean, stddev=stddev, dtype=dtype,
         seed=self.make_legacy_seed())
 
   def dropout(self, inputs, rate, noise_shape=None):
     self._maybe_init()
-    if self._rng_type == self.RNG_STATEFUL:
+    if self._rng_type in [self.RNG_STATEFUL, self.RNG_STATELESS]:
       return tf.nn.experimental.stateless_dropout(
           inputs, rate=rate, noise_shape=noise_shape,
           seed=self.make_seed_for_stateless_op())
-    elif self._rng_type == self.RNG_STATELESS:
-      return tf.nn.experimental.stateless_dropout(
-          inputs, rate=rate, noise_shape=noise_shape,
-          seed=self.make_seed_for_stateless_op())
-    # We don't support stateless in this case, otherwise the dropout
-    # will always have identical behavior across the batches.
     return tf.nn.dropout(inputs, rate=rate, noise_shape=noise_shape,
                          seed=self.make_legacy_seed())
 
