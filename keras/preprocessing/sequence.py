@@ -26,6 +26,7 @@ for more details.
 
 import json
 import random
+import secrets
 
 from keras.utils import data_utils
 import numpy as np
@@ -328,7 +329,7 @@ def skipgrams(sequence,
     if not wi:
       continue
     if sampling_table is not None:
-      if sampling_table[wi] < random.random():
+      if sampling_table[wi] < secrets.SystemRandom().random():
         continue
 
     window_start = max(0, i - window_size)
@@ -347,10 +348,10 @@ def skipgrams(sequence,
   if negative_samples > 0:
     num_negative_samples = int(len(labels) * negative_samples)
     words = [c[0] for c in couples]
-    random.shuffle(words)
+    secrets.SystemRandom().shuffle(words)
 
     couples += [[words[i % len(words)],
-                 random.randint(1, vocabulary_size - 1)]
+                 secrets.choice(range(1, vocabulary_size))]
                 for i in range(num_negative_samples)]
     if categorical:
       labels += [[1, 0]] * num_negative_samples
@@ -359,10 +360,12 @@ def skipgrams(sequence,
 
   if shuffle:
     if seed is None:
-      seed = random.randint(0, 10e6)
+      seed = secrets.choice(range(0, 10000001))
+    # OpenRefactory Warning: Pseudorandom number generators should be avoided.
     random.seed(seed)
-    random.shuffle(couples)
+    secrets.SystemRandom().shuffle(couples)
+    # OpenRefactory Warning: Pseudorandom number generators should be avoided.
     random.seed(seed)
-    random.shuffle(labels)
+    secrets.SystemRandom().shuffle(labels)
 
   return couples, labels
