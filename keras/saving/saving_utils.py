@@ -325,6 +325,8 @@ def try_build_compiled_arguments(model):
         model.compiled_loss.build(model.outputs)
       if not model.compiled_metrics.built:
         model.compiled_metrics.build(model.outputs, model.outputs)
+    # OpenRefactory Warning: Too broad exception clause.
+    # Instead of using an empty except block use a more specific built-in exception or, create a custom one.
     except:  # pylint: disable=bare-except
       logging.warning(
           'Compiled the loaded model, but the compiled metrics have yet to '
