@@ -95,6 +95,8 @@ def inject_argument_info_in_traceback(fn, object_name=None):
     except Exception as e:  # pylint: disable=broad-except
       if hasattr(e, '_keras_call_info_injected'):
         # Only inject info for the innermost failing call
+        # OpenRefactory Warning: Raising 'Exception' and 'BaseException' directly will have a negative impact on any code trying to catch these exceptions.
+        # Raise a more specific built-in exception or, create a custom one.
         raise e
       signature = inspect.signature(fn)
       try:
