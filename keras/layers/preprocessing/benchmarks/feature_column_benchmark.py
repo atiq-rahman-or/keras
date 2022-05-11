@@ -13,11 +13,11 @@
 # limitations under the License.
 # ==============================================================================
 """Benchmark suite for KPL and feature column implementations."""
+import secrets
 
 import tensorflow.compat.v2 as tf
 import itertools
 import math
-import random
 import string
 import time
 
@@ -78,7 +78,7 @@ def create_string_data(length,
   num_oovs = int(pct_oov * total_length)
   values = []
   for _ in range(total_length):
-    values.append(random.choice(vocabulary))
+    values.append(secrets.choice(vocabulary))
 
   if pct_oov > 0:
     oov_cadence = int(total_length / num_oovs)
